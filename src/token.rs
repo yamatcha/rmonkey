@@ -24,6 +24,11 @@ pub enum Token {
     RBRACE,
     FUNCTION,
     LET,
+    TRUE,
+    FALSE,
+    IF,
+    ELSE,
+    RETURN,
 }
 
 //pub fn from_bytes(src: &[u8]) -> Result<Token, Error> {
@@ -49,6 +54,11 @@ pub fn lookup_ident(ident: String) -> Token {
     match ident.as_str() {
         "fn" => FUNCTION,
         "let" => LET,
+        "true" => TRUE,
+        "false" => FALSE,
+        "if" => IF,
+        "else" => ELSE,
+        "return" => RETURN,
         _ => IDENT(ident),
     }
 }
