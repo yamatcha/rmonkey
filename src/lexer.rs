@@ -1,4 +1,5 @@
 use crate::token;
+use crate::token::Token;
 pub struct Lexer {
     input: String,
     position: i32,
@@ -28,21 +29,61 @@ impl Lexer {
         self.read_position += 1;
     }
 
-    fn next_token(&mut self) -> token::Token {
+    fn read_identifier(&mut self) -> String {
+        let position = self.position as usize;
+        while is_letter(self.ch as char) {
+            self.read_char()
+        }
+        self.input.clone().as_str()[position..self.position as usize].to_string()
+    }
+
+    fn skip_whitespace(&mut self) {
+        while self.ch == b' ' || self.ch == b'\t' || self.ch == b'\n' || self.ch == b'\r' {
+            self.read_char();
+        }
+    }
+
+    fn read_number(&mut self) -> String {
+        let position = self.position as usize;
+        while is_digit(self.ch as char) {
+            self.read_char()
+        }
+        self.input.clone().as_str()[position..self.position as usize].to_string()
+    }
+
+    fn next_token(&mut self) -> Token {
+        self.skip_whitespace();
         let tok = match self.ch as char {
-            '=' => token::ASSIGN,
-            ';' => token::SEMICOLON,
-            '(' => token::LPAREN,
-            ')' => token::RPAREN,
-            ',' => token::COMMA,
-            '+' => token::PLUS,
-            '{' => token::LBRACE,
-            '}' => token::RBRACE,
-            _ => token::EOF,
+            '=' => Token::ASSIGN,
+            ';' => Token::SEMICOLON,
+            '(' => Token::LPAREN,
+            ')' => Token::RPAREN,
+            ',' => Token::COMMA,
+            '+' => Token::PLUS,
+            '{' => Token::LBRACE,
+            '}' => Token::RBRACE,
+            '\0' => Token::EOF,
+            _ => {
+                if is_letter(self.ch as char) {
+                    return token::lookup_ident(self.read_identifier());
+                } else if is_digit(self.ch as char) {
+                    return Token::INT(self.read_number());
+                } else {
+                    Token::ILLEGAL
+                }
+            }
         };
         self.read_char();
         tok
     }
+}
+
+fn is_letter(ch: char) -> bool {
+    return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_';
+}
+
+fn is_digit(ch: char) -> bool {
+    '0' <= ch && ch <= '9'
 }
 
 #[cfg(test)]
@@ -50,21 +91,57 @@ mod tests {
     use super::*;
     #[test]
     fn test_next_token() {
-        let input: &str = "=+(){},;";
+        let input: &str = "let five = 5;
+let ten = 10;
+
+let add = fn(x, y){
+    x + y;
+};
+let result = add(five, ten);
+            ";
         let tests = [
-            token::ASSIGN,
-            token::PLUS,
-            token::LPAREN,
-            token::RPAREN,
-            token::LBRACE,
-            token::RBRACE,
-            token::COMMA,
-            token::SEMICOLON,
-            token::EOF,
+            Token::LET,
+            Token::IDENT("five".to_string()),
+            Token::ASSIGN,
+            Token::INT("5".to_string()),
+            Token::SEMICOLON,
+            Token::LET,
+            Token::IDENT("ten".to_string()),
+            Token::ASSIGN,
+            Token::INT("10".to_string()),
+            Token::SEMICOLON,
+            Token::LET,
+            Token::IDENT("add".to_string()),
+            Token::ASSIGN,
+            Token::FUNCTION,
+            Token::LPAREN,
+            Token::IDENT("x".to_string()),
+            Token::COMMA,
+            Token::IDENT("y".to_string()),
+            Token::RPAREN,
+            Token::LBRACE,
+            Token::IDENT("x".to_string()),
+            Token::PLUS,
+            Token::IDENT("y".to_string()),
+            Token::SEMICOLON,
+            Token::RBRACE,
+            Token::SEMICOLON,
+            Token::LET,
+            Token::IDENT("result".to_string()),
+            Token::ASSIGN,
+            Token::IDENT("add".to_string()),
+            Token::LPAREN,
+            Token::IDENT("five".to_string()),
+            Token::COMMA,
+            Token::IDENT("ten".to_string()),
+            Token::RPAREN,
+            Token::SEMICOLON,
+            Token::EOF,
         ];
         let mut l = Lexer::new(input);
         for test in tests.iter() {
             let tok = l.next_token();
+            println!("{:?} token", tok);
             assert!(tok == *test);
         }
     }
