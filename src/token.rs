@@ -8,6 +8,14 @@ pub enum Token {
     INT(String),
     ASSIGN,
     PLUS,
+    MINUS,
+    BANG,
+    ASTERISK,
+    SLASH,
+
+    LT,
+    GT,
+
     COMMA,
     SEMICOLON,
     LPAREN,

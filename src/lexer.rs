@@ -55,11 +55,17 @@ impl Lexer {
         self.skip_whitespace();
         let tok = match self.ch as char {
             '=' => Token::ASSIGN,
+            '+' => Token::PLUS,
+            '-' => Token::MINUS,
+            '!' => Token::BANG,
+            '/' => Token::SLASH,
+            '*' => Token::ASTERISK,
+            '<' => Token::LT,
+            '>' => Token::GT,
             ';' => Token::SEMICOLON,
             '(' => Token::LPAREN,
             ')' => Token::RPAREN,
             ',' => Token::COMMA,
-            '+' => Token::PLUS,
             '{' => Token::LBRACE,
             '}' => Token::RBRACE,
             '\0' => Token::EOF,
@@ -98,6 +104,8 @@ let add = fn(x, y){
     x + y;
 };
 let result = add(five, ten);
+!-/*5;
+5 < 10 > 5;
             ";
         let tests = [
             Token::LET,
@@ -135,6 +143,18 @@ let result = add(five, ten);
             Token::COMMA,
             Token::IDENT("ten".to_string()),
             Token::RPAREN,
+            Token::SEMICOLON,
+            Token::BANG,
+            Token::MINUS,
+            Token::SLASH,
+            Token::ASTERISK,
+            Token::INT("5".to_string()),
+            Token::SEMICOLON,
+            Token::INT("5".to_string()),
+            Token::LT,
+            Token::INT("10".to_string()),
+            Token::GT,
+            Token::INT("5".to_string()),
             Token::SEMICOLON,
             Token::EOF,
         ];
