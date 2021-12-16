@@ -51,10 +51,33 @@ impl Lexer {
         self.input.clone().as_str()[position..self.position as usize].to_string()
     }
 
+    fn peek_char(&mut self) -> u8 {
+        if self.read_position as usize >= self.input.len() {
+            0
+        } else {
+            self.input.chars().nth(self.read_position as usize).unwrap() as u8
+        }
+    }
+
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let tok = match self.ch as char {
-            '=' => Token::ASSIGN,
+            '=' => {
+                if self.peek_char() as char == '=' {
+                    self.read_char();
+                    Token::EQ
+                } else {
+                    Token::ASSIGN
+                }
+            }
+            '!' => {
+                if self.peek_char() as char == '=' {
+                    self.read_char();
+                    Token::NOTEq
+                } else {
+                    Token::BANG
+                }
+            }
             '+' => Token::PLUS,
             '-' => Token::MINUS,
             '!' => Token::BANG,
@@ -111,6 +134,9 @@ if (5 < 10){
 } else {
     return false;
 }
+
+10==10;
+10!=9;
 ";
         let tests = [
             Token::LET,
@@ -178,6 +204,14 @@ if (5 < 10){
             Token::FALSE,
             Token::SEMICOLON,
             Token::RBRACE,
+            Token::INT("10".to_string()),
+            Token::EQ,
+            Token::INT("10".to_string()),
+            Token::SEMICOLON,
+            Token::INT("10".to_string()),
+            Token::NOTEq,
+            Token::INT("9".to_string()),
+            Token::SEMICOLON,
             Token::EOF,
         ];
         let mut l = Lexer::new(input);
