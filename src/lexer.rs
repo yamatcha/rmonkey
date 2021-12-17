@@ -1,5 +1,7 @@
 use crate::token;
 use crate::token::Token;
+use std::iter::Iterator;
+
 pub struct Lexer {
     input: String,
     position: i32,
@@ -8,7 +10,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    fn new(input: &str) -> Lexer {
+    pub fn new(input: &str) -> Lexer {
         let mut l = Self {
             input: input.to_string(),
             position: 0,
@@ -59,7 +61,7 @@ impl Lexer {
         }
     }
 
-    fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let tok = match self.ch as char {
             '=' => {
@@ -80,7 +82,6 @@ impl Lexer {
             }
             '+' => Token::PLUS,
             '-' => Token::MINUS,
-            '!' => Token::BANG,
             '/' => Token::SLASH,
             '*' => Token::ASTERISK,
             '<' => Token::LT,
@@ -104,6 +105,19 @@ impl Lexer {
         };
         self.read_char();
         tok
+    }
+}
+
+impl Iterator for Lexer {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let tok = self.next_token();
+        if tok == Token::EOF {
+            None
+        } else {
+            Some(tok)
+        }
     }
 }
 
