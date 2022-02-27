@@ -1,6 +1,20 @@
-use crate::ast::{Expression, Identifier, Program, Statement};
+use crate::ast::{Expression, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
+
+// type PrefixParseFn = Box<dyn Fn() -> Expression>;
+// type InfixParseFn = Box<dyn Fn(Expression) -> Expression>;
+
+enum Priority {
+    // INT,
+    LOWEST,
+    // EQUALS,
+    // LESSGREATER,
+    // SUM,
+    // PRODUCT,
+    // PREFIX,
+    // CALL,
+}
 
 pub struct Parser {
     l: Lexer,
@@ -54,18 +68,18 @@ impl Parser {
         match self.cur_token {
             Token::LET => self.parse_let_statement(),
             Token::RETURN => self.parse_return_statement(),
-            _ => None,
+            _ => self.parse_expression_statement(),
         }
     }
 
-    pub fn parse_let_statement(&mut self) -> Option<Statement> {
+    fn parse_let_statement(&mut self) -> Option<Statement> {
         let token = self.cur_token.clone();
         let value = match &self.peek_token {
             Token::IDENT(x) => Some(x),
             _ => return None,
         }?
         .clone();
-        let name = Identifier {
+        let name = Expression::Identifier {
             token: self.peek_token.clone(),
             value: value.to_string(),
         };
@@ -83,7 +97,7 @@ impl Parser {
         })
     }
 
-    pub fn parse_return_statement(&mut self) -> Option<Statement> {
+    fn parse_return_statement(&mut self) -> Option<Statement> {
         let token = self.cur_token.clone();
         self.next_token();
         while self.cur_token_is(Token::SEMICOLON) {
@@ -92,6 +106,31 @@ impl Parser {
         Some(Statement::ReturnStatement {
             token: token,
             value: Expression::Defa,
+        })
+    }
+
+    fn parse_expression_statement(&mut self) -> Option<Statement> {
+        let token = self.cur_token.clone();
+        let expression = self.parse_expression(Priority::LOWEST)?;
+        if self.peek_token_is(Token::SEMICOLON) {
+            self.next_token();
+        }
+        Some(Statement::ExpressionStatement { token, expression })
+    }
+
+    fn parse_expression(&mut self, precedence: Priority) -> Option<Expression> {
+        let prefix = self.prefix_fn();
+        return prefix;
+    }
+
+    fn parse_identifier(&mut self) -> Option<Expression> {
+        let value = match &self.cur_token {
+            Token::IDENT(x) => Some(x),
+            _ => None,
+        }?;
+        Some(Expression::Identifier {
+            token: self.cur_token.clone(),
+            value: value.to_string(),
         })
     }
 
@@ -107,6 +146,12 @@ impl Parser {
             true
         } else {
             false
+        }
+    }
+    fn prefix_fn(&mut self) -> Option<Expression> {
+        match &self.cur_token {
+            Token::IDENT(_) => self.parse_identifier(),
+            _ => None,
         }
     }
 }
@@ -129,7 +174,15 @@ let foobar = 838383;
         for (i, tt) in tests.iter().enumerate() {
             let stmt = &program.statements[i];
             let a = match stmt {
-                Statement::LetStatement { token, name, value } => Some((token, &name.value, value)),
+                Statement::LetStatement {
+                    token,
+                    name:
+                        Expression::Identifier {
+                            token: _,
+                            value: identvalue,
+                        },
+                    value,
+                } => Some((token, identvalue, value)),
                 _ => None,
             }
             .unwrap();
@@ -151,11 +204,37 @@ return 993322;
         assert_eq!(program.statements.len(), 3);
         for stmt in program.statements {
             let value = match stmt {
-                Statement::ReturnStatement { token, value } => Some(token),
+                Statement::ReturnStatement {
+                    token,
+                    value: _value,
+                } => Some(token),
                 _ => None,
             }
             .unwrap();
             assert!(value == Token::RETURN)
         }
+    }
+
+    #[test]
+    fn test_identifer_expression() {
+        let input = "foobar;";
+        let l = Lexer::new(&input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = match &program.statements[0] {
+            Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+            _ => None,
+        }
+        .unwrap();
+        let ident = match stmt.1 {
+            Expression::Identifier { token, value } => Some((token.clone(), value.clone())),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(
+            ident,
+            (Token::IDENT("foobar".to_string()), "foobar".to_string())
+        );
     }
 }

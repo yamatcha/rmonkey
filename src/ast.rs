@@ -7,17 +7,22 @@ pub trait Node {
 pub enum Statement {
     LetStatement {
         token: Token,
-        name: Identifier,
+        name: Expression,
         value: Expression,
     },
     ReturnStatement {
         token: Token,
         value: Expression,
     },
+    ExpressionStatement {
+        token: Token,
+        expression: Expression,
+    },
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Expression {
+    Identifier { token: Token, value: String },
     Defa,
 }
 
@@ -44,17 +49,9 @@ fn token_literal(stmt: Statement) -> Token {
             value: _,
         } => token,
         Statement::ReturnStatement { token, value: _ } => token,
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct Identifier {
-    pub token: Token,
-    pub value: String,
-}
-
-impl Node for Identifier {
-    fn token_literal(&mut self) -> Token {
-        self.token.clone()
+        Statement::ExpressionStatement {
+            token,
+            expression: _,
+        } => token,
     }
 }
