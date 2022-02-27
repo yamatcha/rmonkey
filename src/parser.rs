@@ -12,7 +12,7 @@ enum Priority {
     // LESSGREATER,
     // SUM,
     // PRODUCT,
-    // PREFIX,
+    PREFIX,
     // CALL,
 }
 
@@ -144,6 +144,17 @@ impl Parser {
             value: value,
         })
     }
+
+    fn parse_prefix_expression(&mut self) -> Option<Expression> {
+        let prefix_token = self.cur_token.clone();
+        self.next_token();
+        Some(Expression::PrefixExpression {
+            token: prefix_token.clone(),
+            operator: prefix_token.to_string(),
+            right: Box::new(self.parse_expression(Priority::PREFIX)?),
+        })
+    }
+
     fn cur_token_is(&self, t: Token) -> bool {
         self.cur_token == t
     }
@@ -162,6 +173,8 @@ impl Parser {
         match &self.cur_token {
             Token::IDENT(_) => self.parse_identifier(),
             Token::INT(_) => self.parse_integer_literal(),
+            Token::BANG => self.parse_prefix_expression(),
+            Token::MINUS => self.parse_prefix_expression(),
             _ => None,
         }
     }
@@ -261,11 +274,46 @@ return 993322;
             _ => None,
         }
         .unwrap();
-        let ident = match stmt.1 {
+        let literal = match stmt.1 {
             Expression::IntegerLiteral { token, value } => Some((token.clone(), value.clone())),
             _ => None,
         }
         .unwrap();
-        assert_eq!(ident, (Token::INT(5.to_string()), 5));
+        assert_eq!(literal, (Token::INT(5.to_string()), 5));
+    }
+
+    #[test]
+    fn test_parsing_prefix_expressions() {
+        let prefix_tests = [("!5;", "!", 5), ("-15", "-", 15)];
+        for (_, tt) in prefix_tests.iter().enumerate() {
+            let l = Lexer::new(&tt.0.to_string());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            assert_eq!(program.statements.len(), 1);
+            let stmt = match &program.statements[0] {
+                Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+                _ => None,
+            }
+            .unwrap();
+            let exp = match stmt.1 {
+                Expression::PrefixExpression {
+                    token,
+                    operator,
+                    right,
+                } => Some((token.clone(), operator.clone(), right.clone())),
+                _ => None,
+            }
+            .unwrap();
+            assert_eq!(exp.1, tt.1);
+            test_integer_literal(*exp.2, tt.2);
+        }
+    }
+    fn test_integer_literal(il: Expression, value: i64) {
+        let ig = match il {
+            Expression::IntegerLiteral { token, value } => Some((token.clone(), value.clone())),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(ig, (Token::INT(value.to_string()), value))
     }
 }

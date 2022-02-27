@@ -1,4 +1,5 @@
 use self::Token::*;
+use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Token {
@@ -33,24 +34,39 @@ pub enum Token {
     RETURN,
 }
 
-//pub fn from_bytes(src: &[u8]) -> Result<Token, Error> {
-//    match src {
-//        b"ILLEGAL" => Ok(ILLEGAL),
-//        b"IDENT" => Ok(IDENT),
-//        b"" => Ok(INT),
-//        b"=" => Ok(ASSIGN),
-//        b"+" => Ok(PLUS),
-//        b"," => Ok(COMMA),
-//        b";" => Ok(SEMICOLON),
-//        b"(" => Ok(LPAREN),
-//        b")" => Ok(RPAREN),
-//        b"{" => Ok(LBRACE),
-//        b"}" => Ok(RBRACE),
-//        b"FUNCTION" => Ok(FUNCTION),
-//        b"LET" => Ok(LET),
-//        _ => Err(Error::new(ErrorKind::Other, "oh no!")),
-//    }
-//}
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            EOF => "\0",
+            IDENT(x) => x,
+            INT(x) => x,
+            ASSIGN => "==",
+            PLUS => "+",
+            MINUS => "-",
+            BANG => "!",
+            ASTERISK => "*",
+            SLASH => "/",
+            LT => "<",
+            GT => ">",
+            EQ => "==",
+            NOTEq => "!=",
+            SEMICOLON => ";",
+            LPAREN => "(",
+            RPAREN => ")",
+            LBRACE => "{",
+            RBRACE => "}",
+            FUNCTION => "fn",
+            LET => "let",
+            TRUE => "true",
+            FALSE => "false",
+            IF => "if",
+            ELSE => "else",
+            RETURN => "return",
+            _ => "",
+        })?;
+        Ok(())
+    }
+}
 
 pub fn lookup_ident(ident: String) -> Token {
     match ident.as_str() {
