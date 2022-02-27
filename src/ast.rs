@@ -23,6 +23,7 @@ pub enum Statement {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Expression {
     Identifier { token: Token, value: String },
+    IntegerLiteral { token: Token, value: i64 },
     Defa,
 }
 

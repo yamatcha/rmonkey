@@ -134,6 +134,16 @@ impl Parser {
         })
     }
 
+    fn parse_integer_literal(&mut self) -> Option<Expression> {
+        let value = match &self.cur_token {
+            Token::INT(x) => Some(x.parse::<i64>().unwrap()),
+            _ => None,
+        }?;
+        Some(Expression::IntegerLiteral {
+            token: self.cur_token.clone(),
+            value: value,
+        })
+    }
     fn cur_token_is(&self, t: Token) -> bool {
         self.cur_token == t
     }
@@ -151,6 +161,7 @@ impl Parser {
     fn prefix_fn(&mut self) -> Option<Expression> {
         match &self.cur_token {
             Token::IDENT(_) => self.parse_identifier(),
+            Token::INT(_) => self.parse_integer_literal(),
             _ => None,
         }
     }
@@ -236,5 +247,25 @@ return 993322;
             ident,
             (Token::IDENT("foobar".to_string()), "foobar".to_string())
         );
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = "5;";
+        let l = Lexer::new(&input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = match &program.statements[0] {
+            Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+            _ => None,
+        }
+        .unwrap();
+        let ident = match stmt.1 {
+            Expression::IntegerLiteral { token, value } => Some((token.clone(), value.clone())),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(ident, (Token::INT(5.to_string()), 5));
     }
 }
