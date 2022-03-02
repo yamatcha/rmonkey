@@ -2,18 +2,16 @@ use crate::ast::{Expression, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 
-// type PrefixParseFn = Box<dyn Fn() -> Expression>;
-// type InfixParseFn = Box<dyn Fn(Expression) -> Expression>;
-
+#[derive(Debug, Eq, PartialEq, Clone)]
 enum Priority {
-    // INT,
+    INT,
     LOWEST,
-    // EQUALS,
-    // LESSGREATER,
-    // SUM,
-    // PRODUCT,
+    EQUALS,
+    LESSGREATER,
+    SUM,
+    PRODUCT,
     PREFIX,
-    // CALL,
+    CALL,
 }
 
 pub struct Parser {
@@ -119,8 +117,17 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Priority) -> Option<Expression> {
-        let prefix = self.prefix_fn();
-        return prefix;
+        let mut left_exp = self.prefix_fn(self.cur_token.clone())?;
+        while !self.peek_token_is(Token::SEMICOLON)
+            && (precedence.clone() as i32) < (self.peek_precedence() as i32)
+        {
+            self.next_token();
+            left_exp = match self.infix_fn(Box::new(left_exp.clone()), self.cur_token.clone()) {
+                Some(x) => x,
+                None => left_exp,
+            };
+        }
+        Some(left_exp)
     }
 
     fn parse_identifier(&mut self) -> Option<Expression> {
@@ -154,6 +161,17 @@ impl Parser {
             right: Box::new(self.parse_expression(Priority::PREFIX)?),
         })
     }
+    fn parse_infix_expression(&mut self, left: Box<Expression>) -> Option<Expression> {
+        let infix_token = self.cur_token.clone();
+        let precedence = self.cur_precedence();
+        self.next_token();
+        Some(Expression::InfixExpression {
+            token: infix_token.clone(),
+            left: left,
+            operator: infix_token.to_string(),
+            right: Box::new(self.parse_expression(precedence)?),
+        })
+    }
 
     fn cur_token_is(&self, t: Token) -> bool {
         self.cur_token == t
@@ -169,13 +187,52 @@ impl Parser {
             false
         }
     }
-    fn prefix_fn(&mut self) -> Option<Expression> {
-        match &self.cur_token {
+    fn prefix_fn(&mut self, token: Token) -> Option<Expression> {
+        match &token {
             Token::IDENT(_) => self.parse_identifier(),
             Token::INT(_) => self.parse_integer_literal(),
             Token::BANG => self.parse_prefix_expression(),
             Token::MINUS => self.parse_prefix_expression(),
             _ => None,
+        }
+    }
+    fn infix_fn(&mut self, left: Box<Expression>, token: Token) -> Option<Expression> {
+        match token {
+            Token::EQ => self.parse_infix_expression(left),
+            Token::NOTEq => self.parse_infix_expression(left),
+            Token::LT => self.parse_infix_expression(left),
+            Token::GT => self.parse_infix_expression(left),
+            Token::PLUS => self.parse_infix_expression(left),
+            Token::MINUS => self.parse_infix_expression(left),
+            Token::SLASH => self.parse_infix_expression(left),
+            Token::ASTERISK => self.parse_infix_expression(left),
+            _ => None,
+        }
+    }
+    fn peek_precedence(&self) -> Priority {
+        match self.peek_token {
+            Token::EQ => Priority::EQUALS,
+            Token::NOTEq => Priority::EQUALS,
+            Token::LT => Priority::LESSGREATER,
+            Token::GT => Priority::LESSGREATER,
+            Token::PLUS => Priority::SUM,
+            Token::MINUS => Priority::SUM,
+            Token::SLASH => Priority::PRODUCT,
+            Token::ASTERISK => Priority::PRODUCT,
+            _ => Priority::LOWEST,
+        }
+    }
+    fn cur_precedence(&self) -> Priority {
+        match self.cur_token {
+            Token::EQ => Priority::EQUALS,
+            Token::NOTEq => Priority::EQUALS,
+            Token::LT => Priority::LESSGREATER,
+            Token::GT => Priority::LESSGREATER,
+            Token::PLUS => Priority::SUM,
+            Token::MINUS => Priority::SUM,
+            Token::SLASH => Priority::PRODUCT,
+            Token::ASTERISK => Priority::PRODUCT,
+            _ => Priority::LOWEST,
         }
     }
 }
@@ -315,5 +372,43 @@ return 993322;
         }
         .unwrap();
         assert_eq!(ig, (Token::INT(value.to_string()), value))
+    }
+
+    #[test]
+    fn test_parsing_infix_expressions() {
+        let infix_tests = [
+            ("5 + 5;", 5, "+", 5),
+            ("5 - 5;", 5, "-", 5),
+            ("5 * 5;", 5, "*", 5),
+            ("5 / 5;", 5, "/", 5),
+            ("5 > 5;", 5, ">", 5),
+            ("5 < 5;", 5, "<", 5),
+            ("5 == 5;", 5, "==", 5),
+            ("5 != 5;", 5, "!=", 5),
+        ];
+        for (_, tt) in infix_tests.iter().enumerate() {
+            let l = Lexer::new(&tt.0.to_string());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            assert_eq!(program.statements.len(), 1);
+            let stmt = match &program.statements[0] {
+                Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+                _ => None,
+            }
+            .unwrap();
+            let exp = match stmt.1 {
+                Expression::InfixExpression {
+                    token,
+                    left,
+                    operator,
+                    right,
+                } => Some((token.clone(), left.clone(), operator.clone(), right.clone())),
+                _ => None,
+            }
+            .unwrap();
+            test_integer_literal(*exp.1, tt.1);
+            assert_eq!(exp.2, tt.2);
+            test_integer_literal(*exp.3, tt.3);
+        }
     }
 }
