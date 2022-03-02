@@ -336,7 +336,14 @@ return 993322;
 
     #[test]
     fn test_parsing_prefix_expressions() {
-        let prefix_tests = [("!5;", "!", 5), ("-15", "-", 15)];
+        let prefix_tests = [
+            ("!5;", "!", Literal::I64(5)),
+            ("-15;", "-", Literal::I64(15)),
+            ("!foobar;", "!", Literal::STR("foobar".to_string())),
+            ("-foobar;", "-", Literal::STR("foobar".to_string())),
+            ("!true;", "!", Literal::BOOL(true)),
+            ("!false;", "!", Literal::BOOL(false)),
+        ];
         for (_, tt) in prefix_tests.iter().enumerate() {
             let l = Lexer::new(&tt.0.to_string());
             let mut p = Parser::new(l);
@@ -357,13 +364,15 @@ return 993322;
             }
             .unwrap();
             assert_eq!(exp.1, tt.1);
-            test_integer_literal(*exp.2, tt.2);
+            test_literal_expression(*exp.2, tt.2.clone());
         }
     }
+    #[derive(Clone)]
     enum Literal {
         I32(i32),
         I64(i64),
         STR(String),
+        BOOL(bool),
     }
     fn test_infix_expression(exp: Expression, left: Literal, operator: String, right: Literal) {
         let op_exp = match exp {
@@ -385,6 +394,7 @@ return 993322;
             Literal::I32(x) => test_integer_literal(exp, x as i64),
             Literal::I64(x) => test_integer_literal(exp, x),
             Literal::STR(x) => test_identifer(exp, x),
+            Literal::BOOL(x) => test_boolean_literal(exp, x as bool),
             _ => (),
         }
     }
@@ -417,14 +427,32 @@ return 993322;
     #[test]
     fn test_parsing_infix_expressions() {
         let infix_tests = [
-            ("5 + 5;", 5, "+", 5),
-            ("5 - 5;", 5, "-", 5),
-            ("5 * 5;", 5, "*", 5),
-            ("5 / 5;", 5, "/", 5),
-            ("5 > 5;", 5, ">", 5),
-            ("5 < 5;", 5, "<", 5),
-            ("5 == 5;", 5, "==", 5),
-            ("5 != 5;", 5, "!=", 5),
+            ("5 + 5;", Literal::I64(5), "+", Literal::I64(5)),
+            ("5 - 5;", Literal::I64(5), "-", Literal::I64(5)),
+            ("5 * 5;", Literal::I64(5), "*", Literal::I64(5)),
+            ("5 / 5;", Literal::I64(5), "/", Literal::I64(5)),
+            ("5 > 5;", Literal::I64(5), ">", Literal::I64(5)),
+            ("5 < 5;", Literal::I64(5), "<", Literal::I64(5)),
+            ("5 == 5;", Literal::I64(5), "==", Literal::I64(5)),
+            ("5 != 5;", Literal::I64(5), "!=", Literal::I64(5)),
+            (
+                "true == true;",
+                Literal::BOOL(true),
+                "==",
+                Literal::BOOL(true),
+            ),
+            (
+                "true != false;",
+                Literal::BOOL(true),
+                "!=",
+                Literal::BOOL(false),
+            ),
+            (
+                "false == false;",
+                Literal::BOOL(false),
+                "==",
+                Literal::BOOL(false),
+            ),
         ];
         for (_, tt) in infix_tests.iter().enumerate() {
             let l = Lexer::new(&tt.0.to_string());
@@ -436,12 +464,7 @@ return 993322;
                 _ => None,
             }
             .unwrap();
-            test_infix_expression(
-                stmt.1.clone(),
-                Literal::I64(tt.1),
-                tt.2.to_string(),
-                Literal::I64(tt.3),
-            );
+            test_infix_expression(stmt.1.clone(), tt.1.clone(), tt.2.to_string(), tt.3.clone());
         }
     }
     #[test]
@@ -478,6 +501,10 @@ return 993322;
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             ),
+            ("true", "true"),
+            ("false", "false"),
+            ("3 > 5 == false", "((3 > 5) == false)"),
+            ("3 < 5 == true", "((3 < 5) == true)"),
         ];
         for tt in tests.iter() {
             let l = Lexer::new(&tt.0.to_string());
