@@ -151,6 +151,12 @@ impl Parser {
             value: value,
         })
     }
+    fn parse_boolean(&mut self) -> Option<Expression> {
+        Some(Expression::Boolean {
+            token: self.cur_token.clone(),
+            value: self.cur_token_is(Token::TRUE),
+        })
+    }
 
     fn parse_prefix_expression(&mut self) -> Option<Expression> {
         let prefix_token = self.cur_token.clone();
@@ -193,6 +199,8 @@ impl Parser {
             Token::INT(_) => self.parse_integer_literal(),
             Token::BANG => self.parse_prefix_expression(),
             Token::MINUS => self.parse_prefix_expression(),
+            Token::TRUE => self.parse_boolean(),
+            Token::FALSE => self.parse_boolean(),
             _ => None,
         }
     }
@@ -388,6 +396,15 @@ return 993322;
         .unwrap();
         assert_eq!(ig, (Token::INT(value.to_string()), value))
     }
+    fn test_boolean_literal(exp: Expression, value: bool) {
+        let bo = match exp {
+            Expression::Boolean { token, value } => Some((token, value)),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(bo.0.to_string(), value.to_string());
+        assert_eq!(bo.1.to_string(), value.to_string());
+    }
     fn test_identifer(il: Expression, value: String) {
         let ident = match il {
             Expression::Identifier { token, value } => Some((token.clone(), value.clone())),
@@ -427,7 +444,22 @@ return 993322;
             );
         }
     }
-
+    #[test]
+    fn test_boolean_expression() {
+        let tests = [("true;", true), ("false", false)];
+        for tt in tests.iter() {
+            let l = Lexer::new(&tt.0.to_string());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            assert_eq!(program.statements.len(), 1);
+            let stmt = match &program.statements[0] {
+                Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+                _ => None,
+            }
+            .unwrap();
+            test_boolean_literal(stmt.1.clone(), tt.1)
+        }
+    }
     #[test]
     fn test_operator_precedence_parsing() {
         let tests = [

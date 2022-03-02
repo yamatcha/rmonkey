@@ -57,6 +57,10 @@ pub enum Expression {
         operator: String,
         right: Box<Expression>,
     },
+    Boolean {
+        token: Token,
+        value: bool,
+    },
     Defa,
 }
 
@@ -76,6 +80,7 @@ impl fmt::Display for Expression {
                 operator,
                 right,
             } => format!("({} {} {})", left, operator, right),
+            Self::Boolean { token, value: _ } => token.to_string(),
             _ => "".to_string(),
         };
         f.write_str(&s)?;
