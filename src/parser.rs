@@ -239,8 +239,6 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer;
-
     use super::*;
     #[test]
     fn test_let_statements() {
@@ -310,15 +308,7 @@ return 993322;
             _ => None,
         }
         .unwrap();
-        let ident = match stmt.1 {
-            Expression::Identifier { token, value } => Some((token.clone(), value.clone())),
-            _ => None,
-        }
-        .unwrap();
-        assert_eq!(
-            ident,
-            (Token::IDENT("foobar".to_string()), "foobar".to_string())
-        );
+        test_identifer(stmt.1.clone(), "foobar".to_string());
     }
 
     #[test]
@@ -333,12 +323,7 @@ return 993322;
             _ => None,
         }
         .unwrap();
-        let literal = match stmt.1 {
-            Expression::IntegerLiteral { token, value } => Some((token.clone(), value.clone())),
-            _ => None,
-        }
-        .unwrap();
-        assert_eq!(literal, (Token::INT(5.to_string()), 5));
+        test_integer_literal(stmt.1.clone(), 5);
     }
 
     #[test]
@@ -367,6 +352,34 @@ return 993322;
             test_integer_literal(*exp.2, tt.2);
         }
     }
+    enum Literal {
+        I32(i32),
+        I64(i64),
+        STR(String),
+    }
+    fn test_infix_expression(exp: Expression, left: Literal, operator: String, right: Literal) {
+        let op_exp = match exp {
+            Expression::InfixExpression {
+                token: _,
+                left,
+                operator,
+                right,
+            } => Some((*left, operator, *right)),
+            _ => None, //TODO
+        }
+        .unwrap();
+        test_literal_expression(op_exp.0, left);
+        assert_eq!(op_exp.1, operator);
+        test_literal_expression(op_exp.2, right);
+    }
+    fn test_literal_expression(exp: Expression, expected: Literal) {
+        match expected {
+            Literal::I32(x) => test_integer_literal(exp, x as i64),
+            Literal::I64(x) => test_integer_literal(exp, x),
+            Literal::STR(x) => test_identifer(exp, x),
+            _ => (),
+        }
+    }
     fn test_integer_literal(il: Expression, value: i64) {
         let ig = match il {
             Expression::IntegerLiteral { token, value } => Some((token.clone(), value.clone())),
@@ -374,6 +387,14 @@ return 993322;
         }
         .unwrap();
         assert_eq!(ig, (Token::INT(value.to_string()), value))
+    }
+    fn test_identifer(il: Expression, value: String) {
+        let ident = match il {
+            Expression::Identifier { token, value } => Some((token.clone(), value.clone())),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(ident, (Token::IDENT(value.clone()), value));
     }
 
     #[test]
@@ -398,19 +419,12 @@ return 993322;
                 _ => None,
             }
             .unwrap();
-            let exp = match stmt.1 {
-                Expression::InfixExpression {
-                    token,
-                    left,
-                    operator,
-                    right,
-                } => Some((token.clone(), left.clone(), operator.clone(), right.clone())),
-                _ => None,
-            }
-            .unwrap();
-            test_integer_literal(*exp.1, tt.1);
-            assert_eq!(exp.2, tt.2);
-            test_integer_literal(*exp.3, tt.3);
+            test_infix_expression(
+                stmt.1.clone(),
+                Literal::I64(tt.1),
+                tt.2.to_string(),
+                Literal::I64(tt.3),
+            );
         }
     }
 
