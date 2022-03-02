@@ -239,6 +239,8 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+    use crate::lexer;
+
     use super::*;
     #[test]
     fn test_let_statements() {
@@ -409,6 +411,34 @@ return 993322;
             test_integer_literal(*exp.1, tt.1);
             assert_eq!(exp.2, tt.2);
             test_integer_literal(*exp.3, tt.3);
+        }
+    }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        let tests = [
+            ("-a * b", "((-a) * b)"),
+            ("!-a", "(!(-a))"),
+            ("a + b + c", "((a + b) + c)"),
+            ("a + b - c", "((a + b) - c)"),
+            ("a * b * c", "((a * b) * c)"),
+            ("a * b / c", "((a * b) / c)"),
+            ("a + b / c", "(a + (b / c))"),
+            ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"),
+            ("(3 + 4); -5 * 5", "(3 + 4)((-5) * 5)"),
+            ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
+            ("5 > 4 != 3 < 4", "((5 > 4) != (3 < 4))"),
+            (
+                "3 + 4 * 5 == 3 * 1 + 4 * 5",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            ),
+        ];
+        for tt in tests.iter() {
+            let l = Lexer::new(&tt.0.to_string());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            let actual = program.to_string();
+            assert_eq!(actual, tt.1);
         }
     }
 }
