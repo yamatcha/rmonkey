@@ -178,6 +178,14 @@ impl Parser {
             right: Box::new(self.parse_expression(precedence)?),
         })
     }
+    fn parse_gropued_expression(&mut self) -> Option<Expression> {
+        self.next_token();
+        let exp = self.parse_expression(Priority::LOWEST);
+        if !self.expect_peek(Token::RPAREN) {
+            return None;
+        }
+        exp
+    }
 
     fn cur_token_is(&self, t: Token) -> bool {
         self.cur_token == t
@@ -201,6 +209,7 @@ impl Parser {
             Token::MINUS => self.parse_prefix_expression(),
             Token::TRUE => self.parse_boolean(),
             Token::FALSE => self.parse_boolean(),
+            Token::LPAREN => self.parse_gropued_expression(),
             _ => None,
         }
     }
@@ -494,7 +503,7 @@ return 993322;
             ("a * b / c", "((a * b) / c)"),
             ("a + b / c", "(a + (b / c))"),
             ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"),
-            ("(3 + 4); -5 * 5", "(3 + 4)((-5) * 5)"),
+            ("3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"),
             ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
             ("5 > 4 != 3 < 4", "((5 > 4) != (3 < 4))"),
             (
@@ -505,6 +514,11 @@ return 993322;
             ("false", "false"),
             ("3 > 5 == false", "((3 > 5) == false)"),
             ("3 < 5 == true", "((3 < 5) == true)"),
+            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+            ("(5 + 5) * 2", "((5 + 5) * 2)"),
+            ("2 / (5 + 5)", "(2 / (5 + 5))"),
+            ("-(5 + 5)", "(-(5 + 5))"),
+            ("!(true == true)", "(!(true == true))"),
         ];
         for tt in tests.iter() {
             let l = Lexer::new(&tt.0.to_string());
