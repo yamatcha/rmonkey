@@ -1,5 +1,5 @@
 use crate::token::Token;
-use std::fmt::{self, format};
+use std::fmt;
 
 pub trait Node {
     fn token_literal(&mut self) -> Token;
@@ -19,6 +19,10 @@ pub enum Statement {
         token: Token,
         expression: Expression,
     },
+    BlockStatement {
+        token: Token,
+        statements: Vec<Box<Statement>>,
+    },
 }
 
 impl fmt::Display for Statement {
@@ -30,6 +34,17 @@ impl fmt::Display for Statement {
                 token: _,
                 expression,
             } => format!("{}", expression),
+            Self::BlockStatement {
+                token: _,
+                statements,
+            } => format!(
+                "{:}",
+                statements
+                    .iter()
+                    .map(|x| (*x).to_string())
+                    .collect::<Vec<_>>()
+                    .join("")
+            ),
         };
         f.write_str(&s)?;
         Ok(())
@@ -61,6 +76,12 @@ pub enum Expression {
         token: Token,
         value: bool,
     },
+    IfExpression {
+        token: Token,
+        condition: Box<Expression>,
+        consequence: Box<Statement>,
+        alternative: Option<Box<Statement>>,
+    },
     Defa,
 }
 
@@ -81,6 +102,22 @@ impl fmt::Display for Expression {
                 right,
             } => format!("({} {} {})", left, operator, right),
             Self::Boolean { token, value: _ } => token.to_string(),
+            Self::IfExpression {
+                token: _,
+                condition,
+                consequence,
+                alternative: Some(alternative),
+            } => {
+                format!("if{} {}else {}", condition, consequence, alternative)
+            }
+            Self::IfExpression {
+                token: _,
+                condition,
+                consequence,
+                alternative: None,
+            } => {
+                format!("if{} {}", condition, consequence)
+            }
             _ => "".to_string(),
         };
         f.write_str(&s)?;
@@ -106,7 +143,7 @@ impl Node for Program {
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for s in self.statements.iter() {
-            f.write_str(&s.to_string());
+            f.write_str(&s.to_string())?;
         }
         Ok(())
     }
@@ -123,6 +160,10 @@ fn token_literal(stmt: Statement) -> Token {
         Statement::ExpressionStatement {
             token,
             expression: _,
+        } => token,
+        Statement::BlockStatement {
+            token,
+            statements: _,
         } => token,
     }
 }

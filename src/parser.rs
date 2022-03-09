@@ -4,14 +4,14 @@ use crate::token::Token;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 enum Priority {
-    INT,
+    // INT,
     LOWEST,
     EQUALS,
     LESSGREATER,
     SUM,
     PRODUCT,
     PREFIX,
-    CALL,
+    // CALL,
 }
 
 pub struct Parser {
@@ -173,7 +173,7 @@ impl Parser {
         self.next_token();
         Some(Expression::InfixExpression {
             token: infix_token.clone(),
-            left: left,
+            left,
             operator: infix_token.to_string(),
             right: Box::new(self.parse_expression(precedence)?),
         })
@@ -185,6 +185,51 @@ impl Parser {
             return None;
         }
         exp
+    }
+    fn parse_if_expression(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
+        if !self.expect_peek(Token::LPAREN) {
+            return None;
+        }
+        self.next_token();
+        let condition = self.parse_expression(Priority::LOWEST)?;
+        if !self.expect_peek(Token::RPAREN) {
+            return None;
+        }
+
+        if !self.expect_peek(Token::LBRACE) {
+            return None;
+        }
+        let consequence = self.parse_block_statement()?;
+        let alternative = if self.peek_token_is(Token::ELSE) {
+            self.next_token();
+            if !self.expect_peek(Token::LBRACE) {
+                return None;
+            }
+            Some(Box::new(self.parse_block_statement()?))
+        } else {
+            None
+        };
+        Some(Expression::IfExpression {
+            token,
+            condition: Box::new(condition),
+            consequence: Box::new(consequence),
+            alternative,
+        })
+    }
+    fn parse_block_statement(&mut self) -> Option<Statement> {
+        let token = self.cur_token.clone();
+        self.next_token();
+        let mut statements = Vec::new();
+        while !self.cur_token_is(Token::RBRACE) && !self.cur_token_is(Token::EOF) {
+            let stmt = self.parse_statement();
+            match stmt {
+                Some(x) => statements.push(Box::new(x)),
+                None => (),
+            }
+            self.next_token();
+        }
+        Some(Statement::BlockStatement { token, statements })
     }
 
     fn cur_token_is(&self, t: Token) -> bool {
@@ -210,6 +255,7 @@ impl Parser {
             Token::TRUE => self.parse_boolean(),
             Token::FALSE => self.parse_boolean(),
             Token::LPAREN => self.parse_gropued_expression(),
+            Token::IF => self.parse_if_expression(),
             _ => None,
         }
     }
@@ -378,7 +424,7 @@ return 993322;
     }
     #[derive(Clone)]
     enum Literal {
-        I32(i32),
+        // I32(i32),
         I64(i64),
         STR(String),
         BOOL(bool),
@@ -400,11 +446,10 @@ return 993322;
     }
     fn test_literal_expression(exp: Expression, expected: Literal) {
         match expected {
-            Literal::I32(x) => test_integer_literal(exp, x as i64),
+            // Literal::I32(x) => test_integer_literal(exp, x as i64),
             Literal::I64(x) => test_integer_literal(exp, x),
             Literal::STR(x) => test_identifer(exp, x),
             Literal::BOOL(x) => test_boolean_literal(exp, x as bool),
-            _ => (),
         }
     }
     fn test_integer_literal(il: Expression, value: i64) {
@@ -492,6 +537,121 @@ return 993322;
             test_boolean_literal(stmt.1.clone(), tt.1)
         }
     }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x }";
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = match &program.statements[0] {
+            Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+            _ => None,
+        }
+        .unwrap();
+        let ifexp = match stmt.1 {
+            Expression::IfExpression {
+                token,
+                condition,
+                consequence,
+                alternative: None,
+            } => Some((token, condition, consequence)),
+            _ => None,
+        }
+        .unwrap();
+        test_infix_expression(
+            *(ifexp.1).clone(),
+            Literal::STR("x".to_string()),
+            "<".to_string(),
+            Literal::STR("y".to_string()),
+        );
+        let consq = match *(ifexp.2).clone() {
+            Statement::BlockStatement {
+                token: _,
+                statements,
+            } => Some(statements),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(consq.len(), 1);
+        let consqexp = match *(consq[0].clone()) {
+            Statement::ExpressionStatement {
+                token: _,
+                expression,
+            } => Some(expression),
+            _ => None,
+        }
+        .unwrap();
+        test_identifer(consqexp, "x".to_string());
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x < y) { x } else { y }";
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = match &program.statements[0] {
+            Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+            _ => None,
+        }
+        .unwrap();
+        let ifexp = match stmt.1 {
+            Expression::IfExpression {
+                token,
+                condition,
+                consequence,
+                alternative: Some(alternative),
+            } => Some((token, condition, consequence, alternative)),
+            _ => None,
+        }
+        .unwrap();
+        test_infix_expression(
+            *(ifexp.1).clone(),
+            Literal::STR("x".to_string()),
+            "<".to_string(),
+            Literal::STR("y".to_string()),
+        );
+        let consq = match *(ifexp.2).clone() {
+            Statement::BlockStatement {
+                token: _,
+                statements,
+            } => Some(statements),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(consq.len(), 1);
+        let consqexp = match *(consq[0].clone()) {
+            Statement::ExpressionStatement {
+                token: _,
+                expression,
+            } => Some(expression),
+            _ => None,
+        }
+        .unwrap();
+        test_identifer(consqexp, "x".to_string());
+        let alter = match *(ifexp.3).clone() {
+            Statement::BlockStatement {
+                token: _,
+                statements,
+            } => Some(statements),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(alter.len(), 1);
+        let alterexp = match *(alter[0].clone()) {
+            Statement::ExpressionStatement {
+                token: _,
+                expression,
+            } => Some(expression),
+            _ => None,
+        }
+        .unwrap();
+        test_identifer(alterexp, "y".to_string());
+    }
+
     #[test]
     fn test_operator_precedence_parsing() {
         let tests = [
