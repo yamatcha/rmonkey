@@ -82,6 +82,11 @@ pub enum Expression {
         consequence: Box<Statement>,
         alternative: Option<Box<Statement>>,
     },
+    FunctionalLiteral {
+        token: Token,
+        parameters: Vec<Box<Expression>>,
+        body: Box<Statement>,
+    },
     Defa,
 }
 
@@ -117,6 +122,22 @@ impl fmt::Display for Expression {
                 alternative: None,
             } => {
                 format!("if{} {}", condition, consequence)
+            }
+            Self::FunctionalLiteral {
+                token,
+                parameters,
+                body,
+            } => {
+                format!(
+                    "{}({}){}",
+                    token,
+                    parameters
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>()
+                        .join(""),
+                    body
+                )
             }
             _ => "".to_string(),
         };

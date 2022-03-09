@@ -231,6 +231,48 @@ impl Parser {
         }
         Some(Statement::BlockStatement { token, statements })
     }
+    fn parse_function_expression(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
+        if !self.expect_peek(Token::LPAREN) {
+            return None;
+        }
+        let parameters = self.parse_function_parameters()?;
+        if !self.expect_peek(Token::LBRACE) {
+            return None;
+        }
+        let body = self.parse_block_statement()?;
+        Some(Expression::FunctionalLiteral {
+            token,
+            parameters: parameters,
+            body: Box::new(body),
+        })
+    }
+    fn parse_function_parameters(&mut self) -> Option<Vec<Box<Expression>>> {
+        let mut identifiers = Vec::new();
+        if self.peek_token_is(Token::RPAREN) {
+            self.next_token();
+            return Some(identifiers);
+        }
+        self.next_token();
+        let ident = Expression::Identifier {
+            token: self.cur_token.clone(),
+            value: self.cur_token.to_string(),
+        };
+        identifiers.push(Box::new(ident));
+        while self.peek_token_is(Token::COMMA) {
+            self.next_token();
+            self.next_token();
+            let ident = Expression::Identifier {
+                token: self.cur_token.clone(),
+                value: self.cur_token.to_string(),
+            };
+            identifiers.push(Box::new(ident));
+        }
+        if !self.expect_peek(Token::RPAREN) {
+            return None;
+        }
+        Some(identifiers)
+    }
 
     fn cur_token_is(&self, t: Token) -> bool {
         self.cur_token == t
@@ -256,6 +298,7 @@ impl Parser {
             Token::FALSE => self.parse_boolean(),
             Token::LPAREN => self.parse_gropued_expression(),
             Token::IF => self.parse_if_expression(),
+            Token::FUNCTION => self.parse_function_expression(),
             _ => None,
         }
     }
@@ -650,6 +693,88 @@ return 993322;
         }
         .unwrap();
         test_identifer(alterexp, "y".to_string());
+    }
+
+    #[test]
+    fn test_functional_literal_parsing() {
+        let input = "fn(x,y) { x + y }";
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = match &program.statements[0] {
+            Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+            _ => None,
+        }
+        .unwrap();
+        let function = match stmt.1 {
+            Expression::FunctionalLiteral {
+                token,
+                parameters,
+                body,
+            } => Some((token, parameters, body)),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(function.1.len(), 2);
+        test_literal_expression(*function.1[0].clone(), Literal::STR("x".to_string()));
+        test_literal_expression(*function.1[1].clone(), Literal::STR("y".to_string()));
+        let body_stmt = match *(function.2).clone() {
+            Statement::BlockStatement {
+                token: _,
+                statements,
+            } => Some(statements),
+            _ => None,
+        }
+        .unwrap();
+        assert_eq!(body_stmt.len(), 1);
+        let body_stmt_exp = match *body_stmt[0].clone() {
+            Statement::ExpressionStatement {
+                token: _,
+                expression,
+            } => Some(expression),
+            _ => None,
+        }
+        .unwrap();
+        test_infix_expression(
+            body_stmt_exp,
+            Literal::STR("x".to_string()),
+            "+".to_string(),
+            Literal::STR("y".to_string()),
+        )
+    }
+
+    #[test]
+    fn test_functional_parameter_parsing() {
+        let tests = [
+            ("fn() {};", Vec::from([])),
+            ("fn(x) {};", Vec::from(["x"])),
+            ("fn(x,y,z) {};", Vec::from(["x", "y", "z"])),
+        ];
+        for tt in tests.iter() {
+            let l = Lexer::new(tt.0);
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            assert_eq!(program.statements.len(), 1);
+            let stmt = match &program.statements[0] {
+                Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+                _ => None,
+            }
+            .unwrap();
+            let function = match stmt.1 {
+                Expression::FunctionalLiteral {
+                    token,
+                    parameters,
+                    body,
+                } => Some((token, parameters, body)),
+                _ => None,
+            }
+            .unwrap();
+            assert_eq!(function.1.len(), tt.1.len());
+            for (i, ident) in tt.1.iter().enumerate() {
+                test_literal_expression(*(function.1[i]).clone(), Literal::STR(ident.to_string()))
+            }
+        }
     }
 
     #[test]
