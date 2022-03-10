@@ -11,7 +11,7 @@ enum Priority {
     SUM,
     PRODUCT,
     PREFIX,
-    // CALL,
+    CALL,
 }
 
 pub struct Parser {
@@ -178,6 +178,32 @@ impl Parser {
             right: Box::new(self.parse_expression(precedence)?),
         })
     }
+    fn parse_call_expression(&mut self, function: Box<Expression>) -> Option<Expression> {
+        let arguments = self.parse_call_arguments()?;
+        Some(Expression::CallExpression {
+            token: self.cur_token.clone(),
+            function,
+            arguments,
+        })
+    }
+    fn parse_call_arguments(&mut self) -> Option<Vec<Box<Expression>>> {
+        let mut args = Vec::new();
+        if self.peek_token_is(Token::RPAREN) {
+            self.next_token();
+            return Some(args);
+        }
+        self.next_token();
+        args.push(Box::new(self.parse_expression(Priority::LOWEST)?));
+        while self.peek_token_is(Token::COMMA) {
+            self.next_token();
+            self.next_token();
+            args.push(Box::new(self.parse_expression(Priority::LOWEST)?));
+        }
+        if !self.expect_peek(Token::RPAREN) {
+            return None;
+        }
+        return Some(args);
+    }
     fn parse_gropued_expression(&mut self) -> Option<Expression> {
         self.next_token();
         let exp = self.parse_expression(Priority::LOWEST);
@@ -312,6 +338,7 @@ impl Parser {
             Token::MINUS => self.parse_infix_expression(left),
             Token::SLASH => self.parse_infix_expression(left),
             Token::ASTERISK => self.parse_infix_expression(left),
+            Token::LPAREN => self.parse_call_expression(left),
             _ => None,
         }
     }
@@ -325,6 +352,7 @@ impl Parser {
             Token::MINUS => Priority::SUM,
             Token::SLASH => Priority::PRODUCT,
             Token::ASTERISK => Priority::PRODUCT,
+            Token::LPAREN => Priority::CALL,
             _ => Priority::LOWEST,
         }
     }
@@ -338,6 +366,7 @@ impl Parser {
             Token::MINUS => Priority::SUM,
             Token::SLASH => Priority::PRODUCT,
             Token::ASTERISK => Priority::PRODUCT,
+            Token::LPAREN => Priority::CALL,
             _ => Priority::LOWEST,
         }
     }
@@ -778,6 +807,44 @@ return 993322;
     }
 
     #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5)";
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = match &program.statements[0] {
+            Statement::ExpressionStatement { token, expression } => Some((token, expression)),
+            _ => None,
+        }
+        .unwrap();
+        let exp = match stmt.1 {
+            Expression::CallExpression {
+                token,
+                function,
+                arguments,
+            } => Some((token, function, arguments)),
+            _ => None,
+        }
+        .unwrap();
+        test_literal_expression(*exp.1.clone(), Literal::STR("add".to_string()));
+        assert_eq!(exp.2.len(), 3);
+        test_literal_expression(*exp.2[0].clone(), Literal::I64(1));
+        test_infix_expression(
+            *exp.2[1].clone(),
+            Literal::I64(2),
+            "*".to_string(),
+            Literal::I64(3),
+        );
+        test_infix_expression(
+            *exp.2[2].clone(),
+            Literal::I64(4),
+            "+".to_string(),
+            Literal::I64(5),
+        );
+    }
+
+    #[test]
     fn test_operator_precedence_parsing() {
         let tests = [
             ("-a * b", "((-a) * b)"),
@@ -804,6 +871,15 @@ return 993322;
             ("2 / (5 + 5)", "(2 / (5 + 5))"),
             ("-(5 + 5)", "(-(5 + 5))"),
             ("!(true == true)", "(!(true == true))"),
+            ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
+            (
+                "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            ),
+            (
+                "add(a + b + c * d / f + g)",
+                "add((((a + b) + ((c * d) / f)) + g))",
+            ),
         ];
         for tt in tests.iter() {
             let l = Lexer::new(&tt.0.to_string());

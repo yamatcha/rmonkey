@@ -87,6 +87,11 @@ pub enum Expression {
         parameters: Vec<Box<Expression>>,
         body: Box<Statement>,
     },
+    CallExpression {
+        token: Token,
+        function: Box<Expression>,
+        arguments: Vec<Box<Expression>>,
+    },
     Defa,
 }
 
@@ -139,6 +144,19 @@ impl fmt::Display for Expression {
                     body
                 )
             }
+            Self::CallExpression {
+                token: _,
+                function,
+                arguments,
+            } => format!(
+                "{}({})",
+                function,
+                arguments
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             _ => "".to_string(),
         };
         f.write_str(&s)?;

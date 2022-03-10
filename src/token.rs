@@ -50,6 +50,7 @@ impl fmt::Display for Token {
             GT => ">",
             EQ => "==",
             NOTEq => "!=",
+            COMMA => ",",
             SEMICOLON => ";",
             LPAREN => "(",
             RPAREN => ")",
