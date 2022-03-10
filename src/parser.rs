@@ -85,25 +85,21 @@ impl Parser {
         if !self.expect_peek(Token::ASSIGN) {
             return None;
         }
-        if !self.cur_token_is(Token::SEMICOLON) {
-            self.next_token()
+        self.next_token();
+        let value = self.parse_expression(Priority::LOWEST)?;
+        if self.peek_token_is(Token::SEMICOLON) {
+            self.next_token();
         }
-        Some(Statement::LetStatement {
-            token,
-            name,
-            value: Expression::Defa,
-        })
+        Some(Statement::LetStatement { token, name, value })
     }
 
     fn parse_return_statement(&mut self) -> Option<Statement> {
         let token = self.cur_token.clone();
         self.next_token();
-        while self.cur_token_is(Token::SEMICOLON) {
-            self.next_token();
-        }
+        let returnval = self.parse_expression(Priority::LOWEST)?;
         Some(Statement::ReturnStatement {
             token: token,
-            value: Expression::Defa,
+            value: returnval,
         })
     }
 
@@ -377,19 +373,18 @@ mod tests {
     use super::*;
     #[test]
     fn test_let_statements() {
-        let input = "
-let x = 5;
-let y = 10;
-let foobar = 838383;
-";
-        let tests = ["x", "y", "foobar"];
-        let l = Lexer::new(&input.to_string());
-        let mut p = Parser::new(l);
-        let program = p.parse_program().unwrap();
-        assert_eq!(program.statements.len(), 3);
-        for (i, tt) in tests.iter().enumerate() {
-            let stmt = &program.statements[i];
-            let a = match stmt {
+        let tests = [
+            ("let x = 5;", "x", Literal::I64(5)),
+            ("let y = true;", "y", Literal::BOOL(true)),
+            ("let foobar = y;", "foobar", Literal::STR("y".to_string())),
+        ];
+        for tt in tests.iter() {
+            let l = Lexer::new(&tt.0);
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            assert_eq!(program.statements.len(), 1);
+            let stmt = &program.statements[0];
+            let letstmt = match stmt {
                 Statement::LetStatement {
                     token,
                     name:
@@ -402,32 +397,32 @@ let foobar = 838383;
                 _ => None,
             }
             .unwrap();
-            assert_eq!(a.0.clone(), Token::LET);
-            assert_eq!(a.1.clone(), tt.to_string());
+            assert_eq!(letstmt.0.clone(), Token::LET);
+            assert_eq!(letstmt.1.clone(), tt.1.to_string());
+            test_literal_expression(letstmt.2.clone(), tt.2.clone());
         }
     }
 
     #[test]
     fn test_return_statements() {
-        let input = "
-return 5;
-return 10;
-return 993322;
-";
-        let l = Lexer::new(&input.to_string());
-        let mut p = Parser::new(l);
-        let program = p.parse_program().unwrap();
-        assert_eq!(program.statements.len(), 3);
-        for stmt in program.statements {
-            let value = match stmt {
-                Statement::ReturnStatement {
-                    token,
-                    value: _value,
-                } => Some(token),
+        let tests = [
+            ("return 5;", Literal::I64(5)),
+            ("return true;", Literal::BOOL(true)),
+            ("return foobar;", Literal::STR("foobar".to_string())),
+        ];
+        for tt in tests.iter() {
+            let l = Lexer::new(&tt.0);
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            assert_eq!(program.statements.len(), 1);
+            let stmt = &program.statements[0];
+            let returnstmt = match stmt {
+                Statement::ReturnStatement { token, value } => Some((token, value)),
                 _ => None,
             }
             .unwrap();
-            assert!(value == Token::RETURN)
+            assert_eq!(*returnstmt.0, Token::RETURN);
+            test_literal_expression(returnstmt.1.clone(), tt.1.clone());
         }
     }
 
