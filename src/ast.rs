@@ -1,8 +1,9 @@
-use crate::token::Token;
+use crate::{object::Object, token::Token};
 use std::fmt;
 
 pub trait Node {
     fn token_literal(&mut self) -> Token;
+    fn eval(&mut self) -> Object;
 }
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Statement {
@@ -172,10 +173,13 @@ pub struct Program {
 impl Node for Program {
     fn token_literal(&mut self) -> Token {
         if self.statements.len() > 0 {
-            return token_literal(self.statements[0].clone());
+            return self.statements[0].clone().token_literal();
         } else {
             return Token::ILLEGAL;
         }
+    }
+    fn eval(&mut self) -> Object {
+        Object::NULL
     }
 }
 
@@ -188,21 +192,67 @@ impl fmt::Display for Program {
     }
 }
 
-fn token_literal(stmt: Statement) -> Token {
-    match stmt {
-        Statement::LetStatement {
-            token,
-            name: _,
-            value: _,
-        } => token,
-        Statement::ReturnStatement { token, value: _ } => token,
-        Statement::ExpressionStatement {
-            token,
-            expression: _,
-        } => token,
-        Statement::BlockStatement {
-            token,
-            statements: _,
-        } => token,
+impl Node for Statement {
+    fn token_literal(&mut self) -> Token {
+        match self {
+            Statement::LetStatement {
+                token,
+                name: _,
+                value: _,
+            } => token.clone(),
+            Statement::ReturnStatement { token, value: _ } => token.clone(),
+            Statement::ExpressionStatement {
+                token,
+                expression: _,
+            } => token.clone(),
+            Statement::BlockStatement {
+                token,
+                statements: _,
+            } => token.clone(),
+        }
+    }
+    fn eval(&mut self) -> Object {
+        Object::NULL
+    }
+}
+
+impl Node for Expression {
+    fn token_literal(&mut self) -> Token {
+        match self {
+            Expression::Identifier { token, value: _ } => token.clone(),
+            Expression::IntegerLiteral { token, value: _ } => token.clone(),
+            Expression::PrefixExpression {
+                token,
+                operator: _,
+                right: _,
+            } => token.clone(),
+            Expression::InfixExpression {
+                token,
+                left: _,
+                operator: _,
+                right: _,
+            } => token.clone(),
+            Expression::Boolean { token, value: bool } => token.clone(),
+            Expression::IfExpression {
+                token,
+                condition: _,
+                consequence: _,
+                alternative: _,
+            } => token.clone(),
+            Expression::FunctionalLiteral {
+                token,
+                parameters: _,
+                body: _,
+            } => token.clone(),
+            Expression::CallExpression {
+                token,
+                function: _,
+                arguments: _,
+            } => token.clone(),
+            Expression::Defa => Token::ILLEGAL,
+        }
+    }
+    fn eval(&mut self) -> Object {
+        Object::NULL
     }
 }
